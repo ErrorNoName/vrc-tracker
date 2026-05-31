@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VRC Tracker — Le companion VRChat pour power users</title>
+    <meta
+        name="description"
+        content="VRC Tracker garde l'historique complet de vos avatars, amis et instances VRChat. Recherche multi-DB, logger temps réel, PrevName persistant, boop et invitations directement depuis le bureau."
+    />
+    <meta property="og:title" content="VRC Tracker — VRChat companion" />
+    <meta
+        property="og:description"
+        content="Historique avatars, logger temps réel, PrevName persistant, boop, invitations. Tout en local, rapide et privé."
+    />
+    <meta name="theme-color" content="#0a0418" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet"
+    />
+    <style>
+        :root {
+            --bg: #07041a;
+            --bg-deep: #050211;
+            --surface: rgba(20, 14, 36, 0.55);
+            --surface-strong: rgba(28, 18, 50, 0.85);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(168, 85, 247, 0.35);
+
+            --primary: #a855f7;
+            --primary-bright: #c084fc;
+            --primary-deep: #6d28d9;
+            --accent: #4338ca;
+
+            --fg: #f4f1ff;
+            --fg-muted: #b9b4d6;
+            --fg-faded: #6f6890;
+
+            --radius-xs: 8px;
+            --radius-sm: 12px;
+            --radius-md: 18px;
+            --radius-lg: 28px;
+            --radius-pill: 999px;
+
+            --shadow-glow: 0 0 60px rgba(168, 85, 247, 0.25);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* Background system */
+        .bg-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background:
+                radial-gradient(80vw 60vh at 50% -10%, rgba(168, 85, 247, 0.32), transparent 70%),
+                radial-gradient(60vw 50vh at 80% 30%, rgba(67, 56, 202, 0.18), transparent 70%),
+                radial-gradient(40vw 50vh at 10% 50%, rgba(192, 132, 252, 0.12), transparent 70%),
+                var(--bg);
+        }
+
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image:
+                linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 56px 56px;
+            mask-image: radial-gradient(ellipse at top, black 30%, transparent 80%);
+            -webkit-mask-image: radial-gradient(ellipse at top, black 30%, transparent 80%);
+        }
+
+        /* Navbar */
+        nav {
+            position: fixed;
+            top: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(94%, 1180px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 12px 16px 12px 22px;
+            background: rgba(15, 9, 30, 0.7);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            backdrop-filter: blur(20px) saturate(140%);
+            -webkit-backdrop-filter: blur(20px) saturate(140%);
+            z-index: 100;
+        }
+
+        /* Titre produit : texte pur (pas de lien souligné / couleur lien) */
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            letter-spacing: -0.02em;
+            color: var(--fg);
+            text-decoration: none;
+            cursor: default;
+            user-select: none;
+        }
+
+        footer .brand {
+            cursor: default;
+        }
+
+        .brand-mark {
+            position: relative;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: conic-gradient(from 200deg, #a855f7, #6d28d9, #4338ca, #a855f7);
+            box-shadow: 0 0 24px rgba(168, 85, 247, 0.55);
+        }
+
+        .brand-mark::after {
+            content: 'V';
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        nav ul {
+            display: flex;
+            gap: 6px;
+            list-style: none;
+        }
+
+        nav a.nav-link {
+            display: inline-block;
+            padding: 8px 14px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--fg-muted);
+            text-decoration: none;
+            border-radius: var(--radius-pill);
+            transition: color 0.2s ease, background 0.2s ease;
+        }
+
+        nav a.nav-link:hover { color: var(--fg); background: rgba(255, 255, 255, 0.05); }
+
+        @media (max-width: 880px) { nav ul { display: none; } }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: var(--radius-pill);
+            text-decoration: none;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #a855f7, #6d28d9);
+            color: white;
+            box-shadow: 0 8px 22px rgba(109, 40, 217, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(109, 40, 217, 0.5); }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--fg);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+        .btn-ghost:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.22); }
+
+        .btn-large { padding: 14px 26px; font-size: 0.95rem; }
+
+        /* Hero */
+        header.hero {
+            min-height: 100vh;
+            padding: 150px 20px 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(168, 85, 247, 0.12);
+            border: 1px solid rgba(168, 85, 247, 0.32);
+            color: var(--primary-bright);
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border-radius: var(--radius-pill);
+            margin-bottom: 1.75rem;
+        }
+
+        .hero-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary-bright); box-shadow: 0 0 8px var(--primary-bright); }
+
+        h1.hero-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            max-width: 920px;
+            margin-bottom: 1.5rem;
+        }
+
+        .gradient-text {
+            background: linear-gradient(110deg, #ffffff 30%, #c084fc 55%, #a855f7 75%, #ffffff 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: shine 6s linear infinite;
+        }
+
+        @keyframes shine { to { background-position: 200% center; } }
+
+        p.hero-subtitle {
+            font-size: 1.05rem;
+            color: var(--fg-muted);
+            max-width: 640px;
+            margin-bottom: 2.5rem;
+        }
+
+        .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .hero-meta { margin-top: 1.5rem; font-size: 0.82rem; color: var(--fg-faded); display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+        .hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
+        .hero-meta svg { color: #22c55e; }
+
+        /* App preview (improved mockup of the real app) */
+        .app-preview {
+            margin-top: 4.5rem;
+            width: min(100%, 1080px);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            background: rgba(12, 7, 26, 0.92);
+            box-shadow: 0 60px 120px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(168, 85, 247, 0.08), var(--shadow-glow);
+            overflow: hidden;
+        }
+
+        .app-preview-titlebar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(7, 4, 20, 0.6);
+        }
+
+        .titlebar-left { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; color: var(--fg-faded); letter-spacing: 0.04em; }
+        .titlebar-left strong { color: var(--fg); font-weight: 600; letter-spacing: 0.06em; }
+
+        .titlebar-right { display: flex; align-items: center; gap: 4px; }
+        .titlebar-window-controls { gap: 6px; }
+        .tb-win {
+            width: 28px;
+            height: 22px;
+            display: grid;
+            place-items: center;
+            font-size: 0.72rem;
+            color: var(--fg-faded);
+            border-radius: 4px;
+            cursor: default;
+            font-family: system-ui, sans-serif;
+            line-height: 1;
+        }
+        .tb-win:hover { background: rgba(255, 255, 255, 0.06); color: var(--fg); }
+        .tb-win-close:hover { background: rgba(239, 68, 68, 0.2); color: #fecaca; }
+
+        .app-preview-body {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            min-height: 520px;
+        }
+
+        /* Sidebar */
+        .preview-sidebar {
+            border-right: 1px solid var(--border);
+            background: rgba(7, 4, 20, 0.6);
+            padding: 14px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .side-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            color: var(--fg-muted);
+        }
+
+        .side-item.active {
+            background: rgba(168, 85, 247, 0.12);
+            color: var(--fg);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+        }
+
+        .side-spacer { flex: 1; }
+
+        .side-user {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-top: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--fg-muted);
+        }
+        .side-user-initials {
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--fg);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+        }
+
+        .side-user-name {
+            color: var(--fg);
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+
+        .side-user-status {
+            font-size: 0.7rem;
+            color: var(--fg-muted);
+        }
+
+        /* Main preview content */
+        .preview-main {
+            padding: 18px;
+            display: flex; flex-direction: column;
+            gap: 16px;
+        }
+
+        .preview-profile-header {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .preview-banner {
+            position: relative;
+            height: 76px;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background:
+                linear-gradient(115deg, rgba(109, 40, 217, 0.85) 0%, rgba(168, 85, 247, 0.55) 45%, rgba(67, 56, 202, 0.75) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.28);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }
+
+        .preview-banner::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 120% at 20% 40%, rgba(255, 255, 255, 0.12), transparent 55%),
+                linear-gradient(to bottom, transparent 0%, rgba(7, 4, 20, 0.55) 100%);
+            pointer-events: none;
+        }
+
+        .preview-profile-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 2px;
+        }
+
+        .preview-avatar {
+            width: 72px;
+            height: 72px;
+            flex-shrink: 0;
+            border-radius: 12px;
+            background:
+                linear-gradient(145deg, rgba(236, 72, 153, 0.35), rgba(168, 85, 247, 0.45)),
+                rgba(12, 7, 26, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        }
+
+        .preview-name {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .preview-name h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+        }
+
+        .preview-name-sub { display: flex; gap: 6px; align-items: center; }
+
+        .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px;
+            border-radius: var(--radius-pill);
+            font-size: 0.7rem; font-weight: 600;
+            border: 1px solid var(--border);
+        }
+        .badge-trusted { color: #22c55e; border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.08); }
+        .badge-trusted .dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+        .badge-status { color: #fbbf24; border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); }
+
+        .preview-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .stat {
+            background: rgba(255,255,255,0.025);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+
+        .stat-label { font-size: 0.7rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.06em; display: flex; gap: 4px; align-items: center; }
+        .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.3rem; font-weight: 600; margin-top: 4px; }
+        .stat-meta { font-size: 0.7rem; color: var(--fg-muted); }
+
+        .stat-progress { height: 4px; margin-top: 8px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden; }
+        .stat-progress > div { height: 100%; border-radius: 999px; background: linear-gradient(to right, #a855f7, #c084fc); }
+
+        .preview-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .preview-card {
+            background: rgba(255,255,255,0.025);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+        }
+
+        .pc-title { font-family: 'Space Grotesk', sans-serif; font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; }
+
+        .pc-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 0.78rem; }
+        .pc-row .k { color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.7rem; }
+        .pc-row .v { color: var(--fg); font-family: 'Space Grotesk', sans-serif; font-weight: 500; }
+
+        .pc-bio { background: rgba(7,4,20,0.7); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 0.78rem; color: var(--fg-muted); }
+
+        .pc-links { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+        .pc-link { font-size: 0.7rem; padding: 4px 10px; background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.25); border-radius: 6px; color: var(--primary-bright); }
+
+        /* Trusted-by row */
+        section.trusted {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 60px 20px 80px;
+            text-align: center;
+        }
+
+        .trusted-label {
+            font-size: 0.78rem; color: var(--fg-faded);
+            text-transform: uppercase; letter-spacing: 0.18em;
+            margin-bottom: 1.5rem;
+        }
+
+        .trusted-row {
+            display: flex; gap: 36px;
+            justify-content: center; align-items: center;
+            flex-wrap: wrap;
+            opacity: 0.85;
+        }
+
+        .trusted-row span {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.05rem; font-weight: 600;
+            color: var(--fg-muted);
+            letter-spacing: 0.02em;
+            display: inline-flex; gap: 8px; align-items: center;
+        }
+
+        .trusted-row svg { width: 18px; height: 18px; opacity: 0.7; }
+
+        /* Section base */
+        section.module {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        .section-head {
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-eyebrow {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 4px 12px;
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            background: rgba(168, 85, 247, 0.08);
+            border-radius: var(--radius-pill);
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: var(--primary-bright);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        h2.section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 600;
+            letter-spacing: -0.025em;
+            line-height: 1.05;
+        }
+
+        p.section-lede {
+            color: var(--fg-muted);
+            max-width: 620px;
+            font-size: 1rem;
+        }
+
+        /* 3-column features */
+        .feat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 22px;
+        }
+
+        .feat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 26px;
+            transition: border-color 0.25s ease, transform 0.25s ease;
+        }
+
+        .feat:hover { border-color: rgba(168,85,247,0.35); transform: translateY(-3px); }
+
+        .feat-icon {
+            width: 38px; height: 38px;
+            display: grid; place-items: center;
+            border-radius: 10px;
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            background: rgba(168, 85, 247, 0.08);
+            color: var(--primary-bright);
+            margin-bottom: 14px;
+        }
+
+        .feat h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+        .feat p { color: var(--fg-muted); font-size: 0.9rem; }
+
+        @media (max-width: 880px) { .feat-grid { grid-template-columns: 1fr; } }
+
+        /* Bento (Innovative tools) */
+        .bento {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .bento-card {
+            grid-column: span 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            min-height: 320px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 18px;
+            transition: border-color 0.25s ease;
+        }
+        .bento-card:hover { border-color: rgba(168,85,247,0.4); }
+
+        .bento-large { grid-column: span 2; }
+
+        .bento-card h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.15rem; font-weight: 600; }
+        .bento-card p { color: var(--fg-muted); font-size: 0.9rem; }
+
+        .bento-glow {
+            position: absolute;
+            width: 280px; height: 280px;
+            top: -120px; right: -100px;
+            background: radial-gradient(circle, rgba(168,85,247,0.18), transparent 70%);
+            pointer-events: none;
+        }
+
+        /* Bento mini mockups */
+        .mini {
+            background: rgba(7, 4, 20, 0.85);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 0.75rem;
+        }
+
+        .mini-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.05); }
+        .mini-row:last-child { border-bottom: none; }
+        .mini-tag {
+            padding: 2px 8px; border-radius: 999px;
+            font-size: 0.65rem; font-weight: 600; letter-spacing: 0.05em;
+        }
+        .tag-add { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+        .tag-mod { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+        .tag-del { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .tag-info { background: rgba(168,85,247,0.12); color: var(--primary-bright); border: 1px solid rgba(168,85,247,0.3); }
+
+        .mini-line { font-family: 'Space Grotesk', sans-serif; font-weight: 500; color: var(--fg); }
+        .mini-faded { color: var(--fg-muted); }
+
+        .mini-bar {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 8px;
+            margin-bottom: 8px;
+        }
+        .mini-search-input { color: var(--fg-muted); font-size: 0.75rem; }
+
+        @media (max-width: 880px) {
+            .bento { grid-template-columns: 1fr; }
+            .bento-large { grid-column: span 1; }
+        }
+
+        /* Steps (replaces pricing) */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .step {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 26px;
+            position: relative;
+        }
+
+        .step-number {
+            position: absolute;
+            top: -14px;
+            left: 22px;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+            color: white;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: grid; place-items: center;
+            box-shadow: 0 0 18px rgba(168,85,247,0.5);
+        }
+
+        .step h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem; margin-bottom: 8px; }
+        .step p { color: var(--fg-muted); font-size: 0.9rem; }
+
+        .step.highlight { border-color: rgba(168,85,247,0.4); background: linear-gradient(180deg, rgba(168,85,247,0.08), rgba(168,85,247,0.0)); }
+
+        @media (max-width: 880px) { .steps { grid-template-columns: 1fr; } }
+
+        /* Workflow tools row */
+        .tools-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+        }
+
+        .tool {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 22px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+
+        .tool h4 { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; }
+        .tool p { color: var(--fg-muted); font-size: 0.85rem; }
+
+        .tool-mini {
+            border: 1px solid var(--border);
+            background: rgba(7,4,20,0.7);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.72rem;
+            color: var(--fg-muted);
+        }
+
+        @media (max-width: 880px) { .tools-row { grid-template-columns: 1fr; } }
+
+        /* FAQ */
+        .faq {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .faq details {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            padding: 16px 22px;
+            margin-bottom: 12px;
+            transition: border-color 0.25s ease;
+        }
+        .faq details[open] { border-color: rgba(168,85,247,0.4); }
+        .faq summary {
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
+            list-style: none;
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 16px;
+        }
+        .faq summary::-webkit-details-marker { display: none; }
+        .faq summary::after {
+            content: '+';
+            font-size: 1.3rem;
+            color: var(--primary-bright);
+            line-height: 1;
+            transition: transform 0.2s ease;
+        }
+        .faq details[open] summary::after { content: '−'; }
+        .faq p { color: var(--fg-muted); font-size: 0.9rem; margin-top: 10px; }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            background: rgba(5, 2, 17, 0.85);
+            margin-top: 80px;
+        }
+
+        .footer-inner {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 60px 20px 30px;
+            display: grid;
+            grid-template-columns: 1.6fr 1fr 1fr 1fr;
+            gap: 40px;
+        }
+
+        .footer-brand { display: flex; flex-direction: column; gap: 14px; max-width: 360px; }
+        .footer-brand p { font-size: 0.85rem; color: var(--fg-muted); }
+
+        .footer-col h5 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--fg);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 12px;
+        }
+        .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+        .footer-col a {
+            color: var(--fg-muted); text-decoration: none;
+            font-size: 0.88rem; transition: color 0.2s ease;
+        }
+        .footer-col a:hover { color: var(--fg); }
+
+        .footer-bottom {
+            border-top: 1px solid var(--border);
+            padding: 18px 20px;
+            display: flex; justify-content: space-between; gap: 16px;
+            color: var(--fg-faded);
+            font-size: 0.78rem;
+            max-width: 1180px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 880px) {
+            .footer-inner { grid-template-columns: 1fr 1fr; }
+            .footer-brand { grid-column: span 2; }
+        }
+
+        /* Mobile mockup adjustments */
+        @media (max-width: 720px) {
+            .app-preview-body { grid-template-columns: 1fr; }
+            .preview-sidebar { display: none; }
+            .preview-stats { grid-template-columns: 1fr 1fr; }
+            .preview-cards { grid-template-columns: 1fr; }
+            .preview-name h3 { font-size: 1.15rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-canvas" aria-hidden="true"></div>
+    <div class="bg-grid" aria-hidden="true"></div>
+
+    <nav aria-label="Primary">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <span>VRC Tracker</span>
+        </div>
+        <ul>
+            <li><a class="nav-link" href="#features">Features</a></li>
+            <li><a class="nav-link" href="#tools">Tools</a></li>
+            <li><a class="nav-link" href="#install">Install</a></li>
+            <li><a class="nav-link" href="#faq">FAQ</a></li>
+        </ul>
+        <a class="btn btn-primary" href="#install">Download</a>
+    </nav>
+
+    <header class="hero" id="top">
+        <span class="hero-pill">
+            <span class="dot" aria-hidden="true"></span>
+            Windows · Portable · v1.0.0
+        </span>
+        <h1 class="hero-title">
+            Le compagnon VRChat,
+            <br />
+            <span class="gradient-text">propulsé par vos données.</span>
+        </h1>
+        <p class="hero-subtitle">
+            VRC Tracker garde l'historique complet de vos avatars, amis et instances.
+            Recherche multi-bases en parallèle, logger temps réel, PrevName persistant et
+            actions sociales (boop, invite, self-invite) — depuis votre bureau, en local.
+        </p>
+        <div class="hero-actions">
+            <a class="btn btn-primary btn-large" href="#install">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Télécharger pour Windows
+            </a>
+            <a class="btn btn-ghost btn-large" href="#features">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                </svg>
+                Voir les fonctionnalités
+            </a>
+        </div>
+        <div class="hero-meta" aria-label="Trust signals">
+            <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>2FA officielle VRChat</span>
+            <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>100% local — aucun serveur tiers</span>
+            <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Portable, sans installation</span>
+        </div>
+
+        <div class="app-preview" role="img" aria-label="Aperçu de l'application VRC Tracker">
+            <div class="app-preview-titlebar">
+                <div class="titlebar-left">
+                    <strong>VRC TRACKER</strong>
+                    <span>·</span>
+                    <span>Profile</span>
+                </div>
+                <div class="titlebar-right titlebar-window-controls" aria-hidden="true">
+                    <span class="tb-win">−</span>
+                    <span class="tb-win">▢</span>
+                    <span class="tb-win tb-win-close">×</span>
+                </div>
+            </div>
+
+            <div class="app-preview-body">
+                <aside class="preview-sidebar">
+                    <div class="side-item active">Profile</div>
+                    <div class="side-item">Search</div>
+                    <div class="side-item">Avatar DB</div>
+                    <div class="side-item">Recent</div>
+                    <div class="side-item">Logger</div>
+                    <div class="side-item">PrevName</div>
+                    <div class="side-item">LeakCheck</div>
+                    <div class="side-item">CineVR</div>
+                    <div class="side-item">Favorites</div>
+                    <div class="side-spacer"></div>
+                    <div class="side-user">
+                        <span class="side-user-initials">IN</span>
+                        <div>
+                            <div class="side-user-name">INIS</div>
+                            <div class="side-user-status">Ask Me</div>
+                        </div>
+                    </div>
+                </aside>
+
+                <main class="preview-main">
+                    <div class="preview-profile-header">
+                        <div class="preview-banner" aria-hidden="true"></div>
+                        <div class="preview-profile-row">
+                            <div class="preview-avatar" aria-hidden="true"></div>
+                            <div class="preview-name">
+                                <h3>I N I S</h3>
+                                <div class="preview-name-sub">
+                                    <span class="badge badge-trusted"><span class="dot"></span> Trusted</span>
+                                    <span class="badge badge-status">Ask Me</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="preview-stats">
+                        <div class="stat">
+                            <div class="stat-label">Total friends</div>
+                            <div class="stat-value">192</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Active friends</div>
+                            <div class="stat-value">32 <span style="color:var(--fg-muted);font-size:.8rem;">17%</span></div>
+                            <div class="stat-progress"><div style="width:17%;"></div></div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Trust level</div>
+                            <div class="stat-value" style="color:#22c55e;">Trusted</div>
+                            <div class="stat-progress"><div style="width:100%;background:linear-gradient(to right,#22c55e,#86efac);"></div></div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Saved avatars</div>
+                            <div class="stat-value">2</div>
+                        </div>
+                    </div>
+
+                    <div class="preview-cards">
+                        <div class="preview-card">
+                            <div class="pc-title">Account Details</div>
+                            <div class="pc-row"><span class="k">Username</span><span class="v">pixxilix</span></div>
+                            <div class="pc-row"><span class="k">User ID</span><span class="v" style="font-size:.7rem;">usr_e5b998a7-7030-4fc6…</span></div>
+                            <div class="pc-row"><span class="k">Date joined</span><span class="v">28/07/2024</span></div>
+                            <div class="pc-row"><span class="k">Last platform</span><span class="v">standalonewindows</span></div>
+                            <div class="pc-row"><span class="k">Current world</span><span class="v" style="font-size:.7rem;">wrld_d5658267…</span></div>
+                            <div class="pc-row"><span class="k">Current instance</span><span class="v" style="font-size:.7rem;">93006~group(grp…)</span></div>
+                        </div>
+                        <div class="preview-card">
+                            <div class="pc-title">Bio &amp; Notes</div>
+                            <div class="pc-bio">hitesh_dewali I Like You ! TAEKWONDO In</div>
+                            <div class="pc-row" style="margin-top:10px;"><span class="k">Status message</span><span class="v">CineVR Creator</span></div>
+                            <div class="pc-links">
+                                <span class="pc-link">www.instagram.com</span>
+                                <span class="pc-link">soundcloud.com</span>
+                                <span class="pc-link">cinevr.net</span>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </header>
+
+    <section class="trusted">
+        <div class="trusted-label">Construit sur des standards officiels et ouverts</div>
+        <div class="trusted-row">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg> VRChat API</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Discord OAuth</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20"/><path d="M12 2a15 15 0 0 0 0 20"/></svg> Electron</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> React + Vite</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> OSC chatbox</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> VRCX-compatible DBs</span>
+        </div>
+    </section>
+
+    <section class="module" id="features">
+        <div class="section-head">
+            <span class="section-eyebrow">Features</span>
+            <h2 class="section-title">Tout ce que VRChat ne montre pas, gardé pour vous.</h2>
+            <p class="section-lede">Une vue claire sur votre univers VRChat — qui vous croisez, ce qu'ils changent, ce que vous explorez.</p>
+        </div>
+
+        <div class="feat-grid">
+            <article class="feat">
+                <div class="feat-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                </div>
+                <h3>Recherche multi-DB</h3>
+                <p>Lancez une recherche dans toutes les bases custom + VRCX-compatibles en parallèle. Résultats progressifs, déduplication automatique, enrichissement via l'API officielle.</p>
+            </article>
+            <article class="feat">
+                <div class="feat-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
+                <h3>Logger temps réel</h3>
+                <p>Lit votre log VRChat en direct : entrées de monde, joins/leaves, switchs d'avatar, changements d'amis. Toggles fins, persistance globale et OSC chatbox optionnel.</p>
+            </article>
+            <article class="feat">
+                <div class="feat-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+                </div>
+                <h3>PrevName persistant</h3>
+                <p>Capture chaque profil rencontré (ID, pseudo, bio, liens, tags). Détecte les changements avec un diff coloré : vert / rouge / orange. Toggle off par défaut.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="module" id="tools">
+        <div class="section-head">
+            <span class="section-eyebrow">Innovative tools</span>
+            <h2 class="section-title">Outils pensés pour les power users.</h2>
+            <p class="section-lede">Chaque module est utile par lui-même, mais devient une vraie base de connaissance quand vous les combinez.</p>
+        </div>
+
+        <div class="bento">
+            <article class="bento-card bento-large">
+                <div class="bento-glow" aria-hidden="true"></div>
+                <div>
+                    <h3>PrevName · Diff coloré comme VS Code</h3>
+                    <p>Vue UI ou RAW JSON. Voyez d'un coup d'œil ce qu'un utilisateur a ajouté, modifié ou supprimé entre deux rencontres.</p>
+                </div>
+                <div class="mini" aria-hidden="true">
+                    <div class="mini-row">
+                        <span class="mini-tag tag-add">ADDED</span>
+                        <span class="mini-line">bioLinks: + cinevr.net</span>
+                    </div>
+                    <div class="mini-row">
+                        <span class="mini-tag tag-mod">MODIFIED</span>
+                        <span class="mini-line">statusDescription: "Looking for friends" → "CineVR Creator"</span>
+                    </div>
+                    <div class="mini-row">
+                        <span class="mini-tag tag-del">REMOVED</span>
+                        <span class="mini-line">tags: − language_eng</span>
+                    </div>
+                    <div class="mini-row">
+                        <span class="mini-tag tag-info">INFO</span>
+                        <span class="mini-faded">3 changes detected · last seen 2 min ago</span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="bento-card">
+                <div>
+                    <h3>Logger global</h3>
+                    <p>Le moteur tourne même quand vous quittez l'onglet. Recherche, filtres, mode OSC pour streamer la dernière notif dans la chatbox VRChat.</p>
+                </div>
+                <div class="mini" aria-hidden="true">
+                    <div class="mini-row"><span class="mini-tag tag-info">JOIN</span><span class="mini-line">SkyDancer · French Vibes</span></div>
+                    <div class="mini-row"><span class="mini-tag tag-add">SWITCH</span><span class="mini-line">avatar → NekoTk.v2-Purple</span></div>
+                    <div class="mini-row"><span class="mini-tag tag-mod">FRIEND</span><span class="mini-line">status: ask me → join me</span></div>
+                </div>
+            </article>
+
+            <article class="bento-card">
+                <div>
+                    <h3>Avatar DB · parallèle</h3>
+                    <p>Affichage progressif des résultats au fur et à mesure qu'ils arrivent — plus d'attente bloquante.</p>
+                </div>
+                <div class="mini" aria-hidden="true">
+                    <div class="mini-bar">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <span class="mini-search-input">neko</span>
+                    </div>
+                    <div class="mini-row"><span class="mini-tag tag-info">3/5</span><span class="mini-line">DBs replied</span></div>
+                    <div class="mini-row"><span class="mini-line">NekoTk.v2-Purple</span></div>
+                    <div class="mini-row"><span class="mini-line">Neko Selestia (Face Tracking)</span></div>
+                </div>
+            </article>
+
+            <article class="bento-card bento-large">
+                <div class="bento-glow" style="top:-100px;left:-100px;right:auto;background:radial-gradient(circle, rgba(67,56,202,0.18), transparent 70%);" aria-hidden="true"></div>
+                <div>
+                    <h3>Actions sociales intégrées</h3>
+                    <p>Boop avec sélection d'emoji, "Invite Friend Here" pour amener un ami sur votre instance, "Self-Invite" pour rejoindre la sienne. Tout depuis le profil ami.</p>
+                </div>
+                <div class="mini" aria-hidden="true">
+                    <div class="mini-row" style="gap:14px;">
+                        <span class="mini-tag tag-info">BOOP</span>
+                        <span class="mini-line">emoji_default_heart → SkyDancer</span>
+                    </div>
+                    <div class="mini-row" style="gap:14px;">
+                        <span class="mini-tag tag-add">INVITE</span>
+                        <span class="mini-line">friend → wrld_a4059cdf… · group instance</span>
+                    </div>
+                    <div class="mini-row" style="gap:14px;">
+                        <span class="mini-tag tag-mod">SELF-INVITE</span>
+                        <span class="mini-line">join SkyDancer's instance</span>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section class="module" id="install">
+        <div class="section-head">
+            <span class="section-eyebrow">Get started</span>
+            <h2 class="section-title">3 étapes. Pas d'installation.</h2>
+            <p class="section-lede">Téléchargez le binaire portable, connectez-vous avec votre compte VRChat (2FA supportée), et tout commence à se logger.</p>
+        </div>
+
+        <div class="steps">
+            <article class="step">
+                <span class="step-number">1</span>
+                <h3>Télécharger</h3>
+                <p>Build Windows portable, ~80 Mo. Aucune installation, aucun service tiers, pas de service en arrière-plan caché.</p>
+            </article>
+            <article class="step highlight">
+                <span class="step-number">2</span>
+                <h3>Se connecter</h3>
+                <p>Login VRChat officiel (mot de passe + 2FA Email/OTP). Le cookie est gardé en local, jamais envoyé ailleurs.</p>
+            </article>
+            <article class="step">
+                <span class="step-number">3</span>
+                <h3>Activer Logger / PrevName</h3>
+                <p>Une fois en VR, les modules collectent ce qui vous intéresse — vous gardez la main avec un kill-switch global.</p>
+            </article>
+        </div>
+
+        <div style="text-align:center;margin-top:36px;">
+            <a class="btn btn-primary btn-large" href="https://github.com/ErrorNoName/vrc-tracker/releases/download/v1.1.1/vrc-avatar-tracker.1.0.0.exe" target="_blank" rel="noreferrer noopener">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Télécharger la dernière release
+            </a>
+        </div>
+    </section>
+
+    <section class="module">
+        <div class="section-head">
+            <span class="section-eyebrow">Workflow</span>
+            <h2 class="section-title">Outils intégrés au quotidien.</h2>
+            <p class="section-lede">VRC Tracker ne remplace pas VRChat — il l'augmente avec ce qui manque autour.</p>
+        </div>
+
+        <div class="tools-row">
+            <article class="tool">
+                <h4>LeakCheck embarqué</h4>
+                <p>Recherche dans vos databases CineVR sans quitter l'app. OAuth Discord supporté en navigateur intégré.</p>
+                <div class="tool-mini">cinevr.net/leakcheck · sandboxed</div>
+            </article>
+            <article class="tool">
+                <h4>CineVR companion</h4>
+                <p>Site CineVR chargé en page native, avec fallback "Open In-App Browser" pour les flows OAuth qui refusent l'iframe.</p>
+                <div class="tool-mini">cinevr.net · X-Frame-safe</div>
+            </article>
+            <article class="tool">
+                <h4>Notifications VRChat</h4>
+                <p>Les notifications officielles (invites, friend requests, boops reçus) sont accessibles depuis la barre de titre.</p>
+                <div class="tool-mini">notifications · live · click → action</div>
+            </article>
+        </div>
+    </section>
+
+    <section class="module" id="faq">
+        <div class="section-head">
+            <span class="section-eyebrow">FAQ</span>
+            <h2 class="section-title">Questions fréquentes.</h2>
+            <p class="section-lede">Si quelque chose manque, ouvrez une issue sur le repo.</p>
+        </div>
+
+        <div class="faq">
+            <details>
+                <summary>Est-ce que mon compte VRChat est en sécurité ?</summary>
+                <p>L'authentification utilise les endpoints officiels VRChat (login + 2FA Email/OTP). Le cookie d'auth reste sur votre machine, dans le stockage local de l'app. Aucune donnée n'est envoyée à un serveur tiers.</p>
+            </details>
+            <details>
+                <summary>Le logiciel est-il vraiment gratuit ?</summary>
+                <p>Oui, totalement. C'est un binaire portable, sans paywall, sans télémétrie. Le code est ouvert.</p>
+            </details>
+            <details>
+                <summary>Le Logger / PrevName tourne-t-il en arrière-plan ?</summary>
+                <p>Oui — le moteur est global et persiste même quand vous changez de page. Un toggle ON/OFF coupe complètement la collecte. PrevName est OFF par défaut.</p>
+            </details>
+            <details>
+                <summary>Pourquoi certaines pages externes (Discord OAuth) ne se chargent pas en iframe ?</summary>
+                <p>Discord et certains sites bloquent l'affichage en iframe (X-Frame-Options: deny). VRC Tracker détecte ce cas et propose un bouton « Open In-App Browser » qui ouvre la page dans une fenêtre top-level Electron, où le login fonctionne normalement.</p>
+            </details>
+            <details>
+                <summary>Est-ce affilié à VRChat Inc. ?</summary>
+                <p>Non. VRC Tracker est un projet communautaire indépendant. VRChat est une marque déposée de VRChat Inc.</p>
+            </details>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <div class="brand">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <span>VRC Tracker</span>
+                </div>
+                <p>Le compagnon de bureau pour les utilisateurs avancés de VRChat. Local-first, rapide, et conçu pour rester avec vous.</p>
+            </div>
+            <div class="footer-col">
+                <h5>Produit</h5>
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#tools">Tools</a></li>
+                    <li><a href="#install">Install</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h5>Modules</h5>
+                <ul>
+                    <li><a href="#features">Logger</a></li>
+                    <li><a href="#features">PrevName</a></li>
+                    <li><a href="#tools">LeakCheck</a></li>
+                    <li><a href="#tools">CineVR</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h5>Liens</h5>
+                <ul>
+                    <li><a href="https://cinevr.net" target="_blank" rel="noreferrer noopener">cinevr.net</a></li>
+                    <li><a href="https://github.com/ErrorNoName/vrc-avatar-tracker" target="_blank" rel="noreferrer noopener">GitHub</a></li>
+                    <li><a href="https://github.com/ErrorNoName/vrc-tracker/releases/latest" target="_blank" rel="noreferrer noopener">Releases</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>VRC Tracker © 2026 · Projet communautaire indépendant</span>
+            <span>Non affilié à VRChat Inc.</span>
+        </div>
+    </footer>
+</body>
+</html>
